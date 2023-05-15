@@ -18,27 +18,31 @@ app.post('/scrape', async (req, res) => {
   let sites = req.body;
   console.log(sites);
 
-  for (let i = 0; i < sites.length; i++) {
-    const site = sites[i];
-    console.log('Begin scrapping '+ site);
+  // Execute scraping functions asynchronously
+  const scrapingPromises = sites.map(async (site) => {
+    console.log('Begin scraping ' + site);
 
-    // Call scraping function dynamically using the variable
+    // Call the scraping function dynamically using the variable
     const data = await functions[site]();
+    return data;
+  });
 
-    bets = bets.concat(data);
+  // Wait for all scraping promises to resolve
+  const scrapedData = await Promise.all(scrapingPromises);
 
-    console.log('End scrapping '+ site);
-  }
+  // Concatenate the scraped data into the bets array
+  bets = scrapedData.reduce((acc, data) => acc.concat(data), []);
+
+  console.log('All scraping completed');
 
   bets = await getMatches(bets);
   bets = await getBestOdds(bets);
   bets = await calculateArbitrage(bets, 10);
 
-  // console.log(bets,JSON.stringify(bets, null, 2));
-
   console.log('Scrape done!');
   res.json(bets);
 });
+
 
 
 function getMatches(data) {
