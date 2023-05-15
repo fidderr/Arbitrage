@@ -12,6 +12,7 @@ function scrape($scrape = ['betcity','unibet','toto','jacks']) {
     $response = curl_exec($curl);
 
     if (curl_errno($curl)) {
+        var_dump('Run `node server.js` to start the server <br>');
         return curl_error($curl);
     }
     else{
@@ -51,10 +52,10 @@ $data = scrape(['betcity','unibet','toto','jacks']);
         </tr>
       <?php } ?>
       <tr>
-          <td><b>Staked:</b></td>
-          <td><b><?= $match['staked'] ?></b></td>
-          <td><b>Profit:</b></td>
-          <td><b><?= $match['profit'] ?></b></td>
+          <td><b>StartTime: <b><?= $match['startTime'] ?></b></td>
+          <td><b>Staked: <b><?= $match['staked'] ?></b></td>
+          <td><b>Profit: <?= $match['profit'] ?></b></td>
+          <td><b></b></td>
       </tr>
       <tr>
         <td></td>
