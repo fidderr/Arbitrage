@@ -7,9 +7,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const puppeteer = require('puppeteer-extra')
-
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin());
+
+// const { chromium, devices } = require('playwright');
+// const device = devices['Galaxy Tab S4 landscape'];
 
 app.post('/scrape', async (req, res) => {
   let bets = [];
@@ -28,22 +30,13 @@ app.post('/scrape', async (req, res) => {
     console.log('End scrapping '+ site);
   }
 
-  const matchedBets = await calculate(bets);
+  bets = getMatches(bets);
+  bets = getBestOdds(bets);
+  bets = calculateArbitrage(bets, 10);
 
   console.log('Scrape done!');
-  res.json(matchedBets);
+  res.json(bets);
 });
-
-
-async function calculate(matches) {
-  matches = getMatches(matches);
-
-  matches = getBestOdds(matches);
-
-  matches = calculateArbitrage(matches);
-
-  return matches;
-}
 
 
 function getMatches(data) {
@@ -145,7 +138,7 @@ function calculateArbitrage(data, amount = 10) {
     newData.push({
       teamOdds: bet,
       stakes: stakes,
-      stakesRoudned: roundedStakes,
+      stakesRounded: roundedStakes,
       returns: returns,
       stakedSum: stakedSum,
       profit: profit
@@ -161,11 +154,22 @@ function calculateArbitrage(data, amount = 10) {
 
 // Common function to launch browser and navigate to a page
 async function launchBrowser(url) {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
   await page.goto(url);
   return { browser, page };
 }
+
+// async function launchBrowser(url) {
+//   const browser = await chromium.launch({ headless: false });
+//   const context = await browser.newContext({
+//     ...device
+//   });
+//   const page = await context.newPage();
+//   await page.goto(url);
+//   return { browser, page };
+// }
+
 
 // Common function to close the browser
 async function closeBrowser(browser) {
@@ -176,10 +180,10 @@ async function closeBrowser(browser) {
 // Define your functions
 const functions = {
 
-  async check() {
+  async test() {
     const { browser, page } = await launchBrowser('https://bot.sannysoft.com/');
 
-    await page.screenshot({ path: 'check.png' });
+    await page.screenshot({ path: 'test.png' });
 
     await closeBrowser(browser);
     return [];
@@ -187,7 +191,10 @@ const functions = {
 
 
   async unibet() {
-    const { browser, page } = await launchBrowser('https://www.unibet.nl/sportsbook-feeds/views/filter/football/netherlands/eredivisie/all/matches', { headless: false });
+    // eredivisie
+    // const { browser, page } = await launchBrowser('https://www.unibet.nl/sportsbook-feeds/views/filter/football/netherlands/eredivisie/all/matches');
+
+    const { browser, page } = await launchBrowser('https://www.unibet.nl/sportsbook-feeds/views/filter/football/england/premier_league/all/matches');
   
     // Wait for the JSON data to load
     await page.waitForSelector('pre');
@@ -223,7 +230,10 @@ const functions = {
 
 
   async toto() {
-    const { browser, page } = await launchBrowser('https://content.toto.nl/content-service/api/v1/q/time-band-event-list?maxMarkets=100&marketSortsIncluded=--%2CCS%2CDC%2CDN%2CHH%2CHL%2CMH%2CMR%2CWH&marketGroupTypesIncluded=CUSTOM_GROUP%2CDOUBLE_CHANCE%2CDRAW_NO_BET%2CMATCH_RESULT%2CMATCH_WINNER%2CMONEYLINE%2CROLLING_SPREAD%2CROLLING_TOTAL%2CSTATIC_SPREAD%2CSTATIC_TOTAL&allowedEventSorts=MTCH&includeChildMarkets=true&prioritisePrimaryMarkets=true&includeCommentary=true&includeMedia=true&drilldownTagIds=1176&maxTotalItems=600&maxEventsPerCompetition=70&maxCompetitionsPerSportPerBand=30&maxEventsForNextToGo=50&startTimeOffsetForNextToGo=600', { headless: false });
+    // eredivisie
+    // const { browser, page } = await launchBrowser('https://content.toto.nl/content-service/api/v1/q/time-band-event-list?maxMarkets=100&marketSortsIncluded=--%2CCS%2CDC%2CDN%2CHH%2CHL%2CMH%2CMR%2CWH&marketGroupTypesIncluded=CUSTOM_GROUP%2CDOUBLE_CHANCE%2CDRAW_NO_BET%2CMATCH_RESULT%2CMATCH_WINNER%2CMONEYLINE%2CROLLING_SPREAD%2CROLLING_TOTAL%2CSTATIC_SPREAD%2CSTATIC_TOTAL&allowedEventSorts=MTCH&includeChildMarkets=true&prioritisePrimaryMarkets=true&includeCommentary=true&includeMedia=true&drilldownTagIds=1176&maxTotalItems=600&maxEventsPerCompetition=70&maxCompetitionsPerSportPerBand=30&maxEventsForNextToGo=50&startTimeOffsetForNextToGo=600');
+
+    const { browser, page } = await launchBrowser('https://content.toto.nl/content-service/api/v1/q/time-band-event-list?maxMarkets=10&marketSortsIncluded=--%2CCS%2CDC%2CDN%2CHH%2CHL%2CMH%2CMR%2CWH&marketGroupTypesIncluded=CUSTOM_GROUP%2CDOUBLE_CHANCE%2CDRAW_NO_BET%2CMATCH_RESULT%2CMATCH_WINNER%2CMONEYLINE%2CROLLING_SPREAD%2CROLLING_TOTAL%2CSTATIC_SPREAD%2CSTATIC_TOTAL&allowedEventSorts=MTCH&includeChildMarkets=true&prioritisePrimaryMarkets=true&includeCommentary=true&includeMedia=true&drilldownTagIds=567&maxTotalItems=60&maxEventsPerCompetition=7&maxCompetitionsPerSportPerBand=3&maxEventsForNextToGo=5&startTimeOffsetForNextToGo=600&dates=2023-05-16T22%3A00%3A00Z%2C2023-05-17T22%3A00%3A00Z%2C2023-05-18T22%3A00%3A00Z');
   
     // Wait for the JSON data to load
     await page.waitForSelector('pre');
@@ -260,7 +270,17 @@ const functions = {
 
 
   async bet365() {
-    const { browser, page } = await launchBrowser('https://www.bet365.nl/#/AC/B1/C1/D1002/E76947770/G40/', { headless: false });
+    const { browser, page } = await launchBrowser('https://www.bet365.nl/#/AC/B1/C1/D1002/E76169570/G40/H^1/');
+
+    await new Promise((resolve) => setTimeout(resolve, 100000)); // Wait for 10 seconds
+
+    await closeBrowser(browser);
+    return cleanBets;
+  },
+
+
+  async betcity() {
+    const { browser, page } = await launchBrowser('https://eu-offering-api.kambicdn.com/offering/v2018/betcitynl/listView/football/england/premier_league/all/matches.json?lang=nl_NL&market=NL');
   
     // Wait for the JSON data to load
     await page.waitForSelector('pre');
@@ -268,24 +288,55 @@ const functions = {
     // Extract the JSON data
     const dirtyBets = await page.evaluate(() => {
       const preElement = document.querySelector('pre');
-      return JSON.parse(preElement.textContent).data.timeBandEvents.flatMap((bet) => bet.events);
+      return JSON.parse(preElement.textContent).events;
     });
-
   
     const cleanBets = dirtyBets.map(dirtyBet => {
-      const event = dirtyBet;
-      const betOffers = dirtyBet.markets[0];
-  
-      const startTime = Date.parse(event.startTime); // Convert start time to timestamp
+      const startTime = Date.parse(dirtyBet.event.start);
+      const betOffers = dirtyBet.betOffers[0];
   
       // Create an array with team names and their odds
       const teamOdds = betOffers.outcomes.map(outcome => ({
-        team: outcome.name.toLowerCase(),
-        odds: outcome.prices[0].decimal
+        team: outcome?.participant?.toLowerCase() || 'draw',
+        odds: (outcome.odds / 1000).toFixed(2)
       }));
   
       return {
-        'bookmaker': 'toto',
+        bookmaker: 'betcity',
+        startTime,
+        teamOdds
+      };
+    });
+  
+    await closeBrowser(browser);
+    return cleanBets;
+  },
+
+
+  async jacks() {
+    const { browser, page } = await launchBrowser('https://eu-offering-api.kambicdn.com/offering/v2018/jvh/listView/football/england/premier_league/all/matches.json?lang=nl_NL&market=NL&');
+  
+    // Wait for the JSON data to load
+    await page.waitForSelector('pre');
+  
+    // Extract the JSON data
+    const dirtyBets = await page.evaluate(() => {
+      const preElement = document.querySelector('pre');
+      return JSON.parse(preElement.textContent).events;
+    });
+  
+    const cleanBets = dirtyBets.map(dirtyBet => {
+      const startTime = Date.parse(dirtyBet.event.start);
+      const betOffers = dirtyBet.betOffers[0];
+  
+      // Create an array with team names and their odds
+      const teamOdds = betOffers.outcomes.map(outcome => ({
+        team: outcome?.participant?.toLowerCase() || 'draw',
+        odds: (outcome.odds / 1000).toFixed(2)
+      }));
+  
+      return {
+        bookmaker: 'jacks',
         startTime,
         teamOdds
       };
