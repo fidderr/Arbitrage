@@ -1,0 +1,3 @@
+de team naam herkenning om bets te matchen verbeteren. beide namen moeten naar predictie kloppen.
+
+de best odds calculatie klopt controleren en de profit correct orderen.
