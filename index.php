@@ -1,5 +1,5 @@
 <?php 
-
+// ['betcity','unibet','toto','jacks']
 function scrape($scrape = ['betcity','unibet','toto','jacks']) {
     $dataString = json_encode($scrape);
 
@@ -15,12 +15,14 @@ function scrape($scrape = ['betcity','unibet','toto','jacks']) {
         return curl_error($curl);
     }
     else{
-        return $response;
+      echo '<pre>';
+      print_r($response);
+      echo '<pre>';
+        return json_decode($response, true);
     }
 }
 
-$data = scrape();
-$table = json_decode($data, true);
+$data = scrape(['toto', 'unibet', 'betcity']);
 ?>
 
 
@@ -43,8 +45,9 @@ $table = json_decode($data, true);
   </tr> -->
 
 
-  <?php foreach($table AS $bet) { ?>
+  <?php foreach($data AS $bet) { ?>
     <tr>
+        <td><?= $bet['teamOdds'][0]['startTime'] ?></td>
         <?php foreach($bet['teamOdds'] AS $team) { ?>
             <td><?= $team['team'] ?></td>
             <td><?= $team['bookmaker'] ?></td>
@@ -57,12 +60,6 @@ $table = json_decode($data, true);
   <?php } ?>
 
 </table>
-
-<?php
-echo '<pre>';
-var_dump($table);
-echo '</pre>';
-?>
 
 </body>
 

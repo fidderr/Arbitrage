@@ -30,9 +30,11 @@ app.post('/scrape', async (req, res) => {
     console.log('End scrapping '+ site);
   }
 
-  bets = getMatches(bets);
-  bets = getBestOdds(bets);
-  bets = calculateArbitrage(bets, 10);
+  bets = await getMatches(bets);
+  bets = await getBestOdds(bets);
+  bets = await calculateArbitrage(bets, 10);
+
+  // console.log(bets,JSON.stringify(bets, null, 2));
 
   console.log('Scrape done!');
   res.json(bets);
@@ -40,121 +42,185 @@ app.post('/scrape', async (req, res) => {
 
 
 function getMatches(data) {
-  for (let i = 0; i < data.length; i++) {
-    const match = data[i];
-    data[i] = [];
-    data[i].push(match);
+  data.map((match) => ({
+    ...match,
+    teamOdds: match.teamOdds.sort((a, b) => a.team.localeCompare(b.team))
+  }));
 
-    const bookmaker = match.bookmaker;
-    const startTime = match.startTime;
-
-    for (const teamOdds of match.teamOdds) {
-      if (teamOdds.team !== 'draw') {
-        const matchedBet = data.find((mb) =>
-          mb.startTime === startTime &&
-          mb.bookmaker !== bookmaker &&
-          mb.teamOdds.some((odds) => odds.team === teamOdds.team)
-        );
-
-        if (matchedBet != undefined) {
-          data[i].push(matchedBet);
-          break;
-        }
-      }
-    }
-  }
-  return data;
-}
-
-
-function getBestOdds(data) {
-  for (let i = 0; i < data.length; i++) {
-    const match = data[i];
-    let bestOdds = [];
-
-    for (const bet of match) {
-      for (const teamOdds of bet.teamOdds) {
-        teamOdds.bookmaker = bet.bookmaker;
-        const existingTeam = bestOdds.find(
-          (odds) =>
-            odds.team.includes(teamOdds.team) || teamOdds.team.includes(odds.team)
-        );
-
-        if (!existingTeam) {
-          bestOdds.push(teamOdds);
-        } else {
-          if (parseFloat(existingTeam.odds) < parseFloat(teamOdds.odds)) {
-            existingTeam.odds = teamOdds.odds;
-            existingTeam.bookmaker = bet.bookmaker;
-          }
-        }
-      }
-    }
-
-    data[i] = bestOdds;
-  }
-  return data;
-}
-
-
-function calculateArbitrage(data, amount = 10) {
   let newData = [];
-  for (let bet of data) {
-    const odds = bet.map((teamOdds) => parseFloat(teamOdds.odds));
-    const probabilities = [];
-    const stakes = [];
-    const roundedStakes = [];
-    let totalProb = 0;
+  let matchingKeys = [];
 
-    // Calculate the sum of the inverse of odds
-    const sumInverseOdds = odds.reduce((carry, odd) => {
-      if (odd === 0) {
-        return carry; // If the odd is 0, return the current carry value
+  for (let i = 0; i < data.length; i++) {
+    const match = data[i];
+    if (matchingKeys.includes(i)) {
+      continue;
+    }
+    for (let i2 = 0; i2 < match.teamOdds.length; i2++) {
+      const teamOdds = match.teamOdds[i2];
+      if(teamOdds.team != 'draw') {
+        const matchingTeams = data.filter((otherMatch, index) =>
+          index !== i &&
+          otherMatch.startTime === match.startTime &&
+          otherMatch.teamOdds.some((odds) => odds.team === teamOdds.team)
+        );
+
+        if(matchingTeams) {
+          matchingTeams.push(match);
+          const matchedIndices = matchingTeams.map((team) => data.indexOf(team)).sort((a, b) => b - a);
+          matchingKeys.push(...matchedIndices);
+          newData.push(matchingTeams);
+        }
+        else{
+          newData.push(match);
+        }
+        break;
       }
-      return carry + 1 / odd;
-    }, 0);
-    
-    // Calculate the stake for each bet based on probabilities
-    for (const odd of odds) {
-      const probability = (odd === 0) ? 0 : (1 / odd) / sumInverseOdds;
-      const stake = amount * probability;
-      probabilities.push(probability);
-      stakes.push(stake);
-      roundedStakes.push(Math.round(stake * 100) / 100);
-      totalProb += probability;
     }
-
-    const returns = [];
-    // Adjust the stake amounts to ensure the total does not exceed amount
-    const multiplier = amount / (stakes.reduce((sum, stake) => sum + stake) * totalProb);
-    for (let i = 0; i < stakes.length; i++) {
-      returns.push(Math.round(stakes[i] * odds[i] * 100) / 100);
-      stakes[i] = Math.round(stakes[i] * multiplier * 100) / 100;
-    }
-
-    const stakedSum = roundedStakes.reduce((sum, stake) => sum + stake)
-    const profit = Math.round((returns[0] - stakedSum) * 100) / 100
-
-    newData.push({
-      teamOdds: bet,
-      stakes: stakes,
-      stakesRounded: roundedStakes,
-      returns: returns,
-      stakedSum: stakedSum,
-      profit: profit
-    });
   }
-
-  // Sort the data based on the 'profit' key in descending order
-  newData.sort((a, b) => Math.abs(a.profit) - Math.abs(b.profit));
 
   return newData;
 }
 
 
+function getBestOdds(data) {
+  let newData = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const match = data[i];
+
+    const dateFormat = new Date(match[0].startTime);
+    const dateToString = dateFormat.toLocaleString();
+
+    newData[i] = {
+      startTime: dateToString,
+      highestOdds: [],
+      bets: []
+    };
+
+    for (let i2 = 0; i2 < match[0].teamOdds.length; i2++) {
+      const teamOdds = match[0].teamOdds[i2];
+      const odds = match.map((bet) => parseFloat(bet.teamOdds[i2].odds));
+
+      const highestOddsIndices = [];
+      let highestOddsValue = '';
+
+      const maxOdds = Math.max(...odds);
+      for (let i = 0; i < odds.length; i++) {
+        if (odds[i] === maxOdds) {
+          highestOddsIndices.push(i);
+          highestOddsValue = odds[i];
+        }
+      }
+
+      const highestOddsBookmakers = highestOddsIndices.map((index) => match[index].bookmaker);
+      const highestOddsBookmaker = highestOddsBookmakers.join(', ');
+
+      newData[i].bets = match;
+
+      newData[i].highestOdds.push({
+        bookmaker: highestOddsBookmaker,
+        team: teamOdds.team,
+        odds: highestOddsValue
+      });
+    }
+  }
+
+  return newData;
+}
+
+
+function calculateArbitrage(data, amount = 10) {
+  for (let bet of data) {
+    let sumStake = 0;
+    const highestOdds = bet.highestOdds;
+    const sumOdds = highestOdds.reduce((total, bet) => total + parseFloat(bet.odds), 0);
+
+    for (let i = 0; i < highestOdds.length; i++) {
+      const highestOdd = highestOdds[i];
+      const odd = parseFloat(highestOdd.odds);
+      const impliedProbability = 1 / odd;
+      const stake = amount * impliedProbability;
+      const potentialProfit = (stake * odd) - amount;
+
+      sumStake += stake;
+
+      bet.highestOdds[i].impliedProbability = impliedProbability.toFixed(2);
+      bet.highestOdds[i].potentialProfit = potentialProfit.toFixed(2);
+      bet.highestOdds[i].stake = stake.toFixed(2);
+    }
+
+    bet.staked = Math.ceil(sumStake * 100) / 100; 
+    bet.profit = Math.floor((bet.staked * sumOdds - bet.staked) * 100) / 100;
+  }
+
+  return data;
+}
+
+
+
+
+
+
+
+// function calculateArbitrage(data, amount = 10) {
+//   let newData = [];
+//   for (let bet of data) {
+//     const odds = bet.map((teamOdds) => parseFloat(teamOdds.odds));
+//     const probabilities = [];
+//     const stakes = [];
+//     const roundedStakes = [];
+//     let totalProb = 0;
+
+//     // Calculate the sum of the inverse of odds
+//     const sumInverseOdds = odds.reduce((carry, odd) => {
+//       if (odd === 0) {
+//         return carry; // If the odd is 0, return the current carry value
+//       }
+//       return carry + 1 / odd;
+//     }, 0);
+    
+//     // Calculate the stake for each bet based on probabilities
+//     for (const odd of odds) {
+//       const probability = (odd === 0) ? 0 : (1 / odd) / sumInverseOdds;
+//       const stake = amount * probability;
+//       probabilities.push(probability);
+//       stakes.push(stake);
+//       roundedStakes.push(Math.round(stake * 100) / 100);
+//       totalProb += probability;
+//     }
+
+//     const returns = [];
+//     // Adjust the stake amounts to ensure the total does not exceed amount
+//     const multiplier = amount / (stakes.reduce((sum, stake) => sum + stake) * totalProb);
+//     for (let i = 0; i < stakes.length; i++) {
+//       returns.push(Math.round(stakes[i] * odds[i] * 100) / 100);
+//       stakes[i] = Math.round(stakes[i] * multiplier * 100) / 100;
+//     }
+
+//     const stakedSum = roundedStakes.reduce((sum, stake) => sum + stake)
+//     const profit = Math.round((returns[0] - stakedSum) * 100) / 100
+
+//     newData.push({
+//       teamOdds: bet,
+//       stakes: stakes,
+//       stakesRounded: roundedStakes,
+//       returns: returns,
+//       stakedSum: stakedSum,
+//       profit: profit
+//     });
+//   }
+
+//   // Sort the data based on the 'profit' key in descending order
+//   newData.sort((a, b) => Math.abs(a.profit) - Math.abs(b.profit));
+
+//   return newData;
+// }
+
+
+
 // Common function to launch browser and navigate to a page
 async function launchBrowser(url) {
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: 'new' });
   const page = await browser.newPage();
   await page.goto(url);
   return { browser, page };
