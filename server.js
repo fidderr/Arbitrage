@@ -30,47 +30,53 @@ app.post('/scrape', async (req, res) => {
 
   const matchedBets = await calculate(bets);
 
-  // console.log(matchedBets);
-
   console.log('Scrape done!');
   res.json(matchedBets);
 });
 
 
 async function calculate(matches) {
-  let returnData = [];
+  matches = getMatches(matches);
 
-  // get matches
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    returnData[i] = [];
-    returnData[i].push(match);
+  matches = getBestOdds(matches);
+
+  matches = calculateArbitrage(matches);
+
+  return matches;
+}
+
+
+function getMatches(data) {
+  for (let i = 0; i < data.length; i++) {
+    const match = data[i];
+    data[i] = [];
+    data[i].push(match);
 
     const bookmaker = match.bookmaker;
     const startTime = match.startTime;
 
     for (const teamOdds of match.teamOdds) {
       if (teamOdds.team !== 'draw') {
-        const matchedBet = matches.find((mb) =>
+        const matchedBet = data.find((mb) =>
           mb.startTime === startTime &&
           mb.bookmaker !== bookmaker &&
           mb.teamOdds.some((odds) => odds.team === teamOdds.team)
         );
 
         if (matchedBet != undefined) {
-          returnData[i].push(matchedBet);
+          data[i].push(matchedBet);
           break;
         }
       }
     }
   }
+  return data;
+}
 
-  // Make a copy of returnData to avoid modifying the original array
-  returnData = JSON.parse(JSON.stringify(returnData));
 
-  // get best odds
-  for (let i = 0; i < returnData.length; i++) {
-    const match = returnData[i];
+function getBestOdds(data) {
+  for (let i = 0; i < data.length; i++) {
+    const match = data[i];
     let bestOdds = [];
 
     for (const bet of match) {
@@ -92,15 +98,10 @@ async function calculate(matches) {
       }
     }
 
-    returnData[i] = bestOdds;
+    data[i] = bestOdds;
   }
-
-  // calculate arbitrage
-  const arbitrageData = await calculateArbitrage(returnData);
-
-  return arbitrageData;
+  return data;
 }
-
 
 
 function calculateArbitrage(data, amount = 10) {
@@ -120,7 +121,6 @@ function calculateArbitrage(data, amount = 10) {
       return carry + 1 / odd;
     }, 0);
     
-
     // Calculate the stake for each bet based on probabilities
     for (const odd of odds) {
       const probability = (odd === 0) ? 0 : (1 / odd) / sumInverseOdds;
@@ -130,8 +130,6 @@ function calculateArbitrage(data, amount = 10) {
       roundedStakes.push(Math.round(stake * 100) / 100);
       totalProb += probability;
     }
-
-    console.log(stakes);
 
     const returns = [];
     // Adjust the stake amounts to ensure the total does not exceed amount
@@ -161,14 +159,9 @@ function calculateArbitrage(data, amount = 10) {
 }
 
 
-
-
-
-
-
 // Common function to launch browser and navigate to a page
 async function launchBrowser(url) {
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
   await page.goto(url);
   return { browser, page };
