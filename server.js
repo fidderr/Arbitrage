@@ -133,14 +133,14 @@ function calculateArbitrage(data, amount = 10) {
   for (let bet of data) {
     let sumStake = 0;
     const highestOdds = bet.highestOdds;
-    const sumOdds = highestOdds.reduce((total, bet) => total + parseFloat(bet.odds), 0);
+    const sumInverseOdds = highestOdds.reduce((total, odd) => total + 1 / parseFloat(odd.odds), 0);
 
     for (let i = 0; i < highestOdds.length; i++) {
       const highestOdd = highestOdds[i];
       const odd = parseFloat(highestOdd.odds);
       const impliedProbability = 1 / odd;
-      const stake = amount * impliedProbability;
-      const potentialProfit = (stake * odd) - amount;
+      const stake = (amount / sumInverseOdds) / odd;
+      const potentialProfit = stake * odd - amount;
 
       sumStake += stake;
 
@@ -149,73 +149,15 @@ function calculateArbitrage(data, amount = 10) {
       bet.highestOdds[i].stake = stake.toFixed(2);
     }
 
-    bet.staked = Math.ceil(sumStake * 100) / 100; 
-    bet.profit = Math.floor((bet.staked * sumOdds - bet.staked) * 100) / 100;
+    bet.staked = sumStake;
+    bet.profit = Math.floor((bet.staked * sumInverseOdds - bet.staked) * 100) / -100;
+    bet.profit = bet.profit.toFixed(2);    
   }
+
+  data.sort((a, b) => Math.abs(a.profit) - Math.abs(b.profit));
 
   return data;
 }
-
-
-
-
-
-
-
-// function calculateArbitrage(data, amount = 10) {
-//   let newData = [];
-//   for (let bet of data) {
-//     const odds = bet.map((teamOdds) => parseFloat(teamOdds.odds));
-//     const probabilities = [];
-//     const stakes = [];
-//     const roundedStakes = [];
-//     let totalProb = 0;
-
-//     // Calculate the sum of the inverse of odds
-//     const sumInverseOdds = odds.reduce((carry, odd) => {
-//       if (odd === 0) {
-//         return carry; // If the odd is 0, return the current carry value
-//       }
-//       return carry + 1 / odd;
-//     }, 0);
-    
-//     // Calculate the stake for each bet based on probabilities
-//     for (const odd of odds) {
-//       const probability = (odd === 0) ? 0 : (1 / odd) / sumInverseOdds;
-//       const stake = amount * probability;
-//       probabilities.push(probability);
-//       stakes.push(stake);
-//       roundedStakes.push(Math.round(stake * 100) / 100);
-//       totalProb += probability;
-//     }
-
-//     const returns = [];
-//     // Adjust the stake amounts to ensure the total does not exceed amount
-//     const multiplier = amount / (stakes.reduce((sum, stake) => sum + stake) * totalProb);
-//     for (let i = 0; i < stakes.length; i++) {
-//       returns.push(Math.round(stakes[i] * odds[i] * 100) / 100);
-//       stakes[i] = Math.round(stakes[i] * multiplier * 100) / 100;
-//     }
-
-//     const stakedSum = roundedStakes.reduce((sum, stake) => sum + stake)
-//     const profit = Math.round((returns[0] - stakedSum) * 100) / 100
-
-//     newData.push({
-//       teamOdds: bet,
-//       stakes: stakes,
-//       stakesRounded: roundedStakes,
-//       returns: returns,
-//       stakedSum: stakedSum,
-//       profit: profit
-//     });
-//   }
-
-//   // Sort the data based on the 'profit' key in descending order
-//   newData.sort((a, b) => Math.abs(a.profit) - Math.abs(b.profit));
-
-//   return newData;
-// }
-
 
 
 // Common function to launch browser and navigate to a page

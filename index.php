@@ -15,14 +15,11 @@ function scrape($scrape = ['betcity','unibet','toto','jacks']) {
         return curl_error($curl);
     }
     else{
-      echo '<pre>';
-      print_r($response);
-      echo '<pre>';
         return json_decode($response, true);
     }
 }
 
-$data = scrape(['toto', 'unibet', 'betcity']);
+$data = scrape(['betcity','unibet','toto','jacks']);
 ?>
 
 
@@ -32,34 +29,47 @@ $data = scrape(['toto', 'unibet', 'betcity']);
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>arbitrage</title>
+    <title>Arbitrage</title>
 </head>
 <body>
     
 <table>
+  <tr>
+    <th>Bookmaker</th>
+    <th>Team</th>
+    <th>Odds</th>
+    <th>Stake</th>
+  </tr>
 
-  <!-- <tr>
-    <th>Company</th>
-    <th>Contact</th>
-    <th>Country</th>
-  </tr> -->
-
-
-  <?php foreach($data AS $bet) { ?>
-    <tr>
-        <td><?= $bet['teamOdds'][0]['startTime'] ?></td>
-        <?php foreach($bet['teamOdds'] AS $team) { ?>
-            <td><?= $team['team'] ?></td>
-            <td><?= $team['bookmaker'] ?></td>
-            <td><?= $team['odds'] ?></td>
-        <?php } ?>
-        <td><?= implode(',  ',$bet['stakesRounded'])?></td>
-        <td><?= $bet['stakedSum'] ?></td>
-        <td><?= $bet['profit'] ?></td>
-    </tr>
+  <?php foreach($data AS $match) { ?>
+    <?php foreach($match['highestOdds'] AS $bet) { ?>
+        <tr>
+          <td><?= $bet['bookmaker'] ?></td>
+          <td><?= $bet['team'] ?></td>
+          <td><?= $bet['odds'] ?></td>
+          <td><?= $bet['stake'] ?></td>
+        </tr>
+      <?php } ?>
+      <tr>
+          <td><b>Staked:</b></td>
+          <td><b><?= $match['staked'] ?></b></td>
+          <td><b>Profit:</b></td>
+          <td><b><?= $match['profit'] ?></b></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
   <?php } ?>
-
 </table>
+
+<?php
+echo '<pre>';
+var_dump($data);
+echo '<pre>';
+?>
 
 </body>
 
