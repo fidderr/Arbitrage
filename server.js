@@ -253,6 +253,10 @@ const functions = {
     return await defaultDataCall(defaultVisits('jvh'), 'jacks');
   },
 
+  async livescorebet() {
+
+  },
+
   
   async toto() {
     const visits = [
