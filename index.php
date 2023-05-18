@@ -1,6 +1,6 @@
 <?php 
 // ['betcity','unibet','toto','jacks']
-function scrape($scrape = ['betcity','unibet','toto','jacks']) {
+function scrape($scrape = ['betcity','unibet','toto','jacks','livescorebet']) {
     $dataString = json_encode($scrape);
 
     $curl = curl_init();
@@ -20,7 +20,7 @@ function scrape($scrape = ['betcity','unibet','toto','jacks']) {
     }
 }
 
-$data = scrape(['betcity','unibet','toto','jacks']);
+$data = scrape(['betcity','unibet','toto','jacks','livescorebet']);
 ?>
 
 

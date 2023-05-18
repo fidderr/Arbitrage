@@ -253,8 +253,62 @@ const functions = {
     return await defaultDataCall(defaultVisits('jvh'), 'jacks');
   },
 
-  async livescorebet() {
 
+  async livescorebet() {
+    const visits = [
+      // Serie A
+      'https://gateway-nl.livescorebet.com/sportsbook/gateway/v3/view/events/matches?categoryid=SBTC3_40030&interval=ALL&lang=nl-nl',
+      // eredivisie
+      'https://gateway-nl.livescorebet.com/sportsbook/gateway/v3/view/events/matches?categoryid=SBTC3_41372&interval=ALL&lang=nl-nl',
+      // premier leauge
+      'https://gateway-nl.livescorebet.com/sportsbook/gateway/v3/view/events/matches?categoryid=SBTC3_40253&interval=ALL&lang=nl-nl',
+      // LaLiga
+      'https://gateway-nl.livescorebet.com/sportsbook/gateway/v3/view/events/matches?categoryid=SBTC3_40031&interval=ALL&lang=nl-nl',
+      // bundesliga
+      'https://gateway-nl.livescorebet.com/sportsbook/gateway/v3/view/events/matches?categoryid=SBTC3_40481&interval=ALL&lang=nl-nl',
+    ];
+
+    console.log(visits);
+
+    let bets = [];
+
+    for (let i = 0; i < visits.length; i++) {
+      const visit = visits[i];
+
+      const { browser, page } = await launchBrowser(visit);
+
+      // Wait for the JSON data to load
+      await page.waitForSelector('pre');
+    
+      // Extract the JSON data
+      const dirtyBets = await page.evaluate(() => {
+        const preElement = document.querySelector('pre');
+        return JSON.parse(preElement.textContent).events.categories[0].events;
+      });
+
+      const cleanBets = dirtyBets.map(dirtyBet => {
+        const startTime = Date.parse(dirtyBet.startTime); // Convert start time to timestamp
+        const betOffers = dirtyBet.markets[0].selections;
+    
+      // Create an array with team names and their odds
+      const teamOdds = betOffers.map(selection => ({
+        team: selection.name.toLowerCase().includes('gelijkspel') ? 'draw' : selection.name.toLowerCase(),
+        odds: selection.odds
+      }));
+    
+      return {
+        'bookmaker': 'livescorebet',
+        startTime,
+        teamOdds
+      };
+    });
+
+      bets = bets.concat(cleanBets);
+      
+      await closeBrowser(browser);
+    }
+
+    return bets;
   },
 
   
@@ -271,6 +325,8 @@ const functions = {
       // bundesliga
       'https://content.toto.nl/content-service/api/v1/q/time-band-event-list?maxMarkets=10&marketSortsIncluded=--%2CCS%2CDC%2CDN%2CHH%2CHL%2CMH%2CMR%2CWH&marketGroupTypesIncluded=CUSTOM_GROUP%2CDOUBLE_CHANCE%2CDRAW_NO_BET%2CMATCH_RESULT%2CMATCH_WINNER%2CMONEYLINE%2CROLLING_SPREAD%2CROLLING_TOTAL%2CSTATIC_SPREAD%2CSTATIC_TOTAL&allowedEventSorts=MTCH&includeChildMarkets=true&prioritisePrimaryMarkets=true&includeCommentary=true&includeMedia=true&drilldownTagIds=577&maxTotalItems=60&maxEventsPerCompetition=7&maxCompetitionsPerSportPerBand=3&maxEventsForNextToGo=5&startTimeOffsetForNextToGo=600&dates=2023-05-16T22%3A00%3A00Z%2C2023-05-17T22%3A00%3A00Z%2C2023-05-18T22%3A00%3A00Z',
     ];
+
+    console.log(visits);
 
     let bets = [];
 
