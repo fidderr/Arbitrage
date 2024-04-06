@@ -1,3 +1,7 @@
-de team naam herkenning om bets te matchen verbeteren. beide namen moeten naar predictie kloppen.
+Team names are slightly diffrent per bookmaker, find a match based on the date of the match, and the closest name match.
 
-de best odds calculatie klopt controleren en de profit correct orderen.
+Bookmakers are not matching with eachother, find out why. 
+
+match dates are not correct in some instances, find out why.
+
+The ordering og highest profit margin to lowest is not working properly
