@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", {
 exports.JavaScriptErrorInEvaluate = exports.JSHandle = exports.ExecutionContext = void 0;
 exports.evaluate = evaluate;
 exports.evaluateExpression = evaluateExpression;
-exports.evaluateExpressionAndWaitForSignals = evaluateExpressionAndWaitForSignals;
 exports.isJavaScriptErrorInEvaluate = isJavaScriptErrorInEvaluate;
 exports.normalizeEvaluationExpression = normalizeEvaluationExpression;
 exports.parseUnserializableValue = parseUnserializableValue;
@@ -15,8 +14,8 @@ var utilityScriptSource = _interopRequireWildcard(require("../generated/utilityS
 var _utilityScriptSerializers = require("./isomorphic/utilityScriptSerializers");
 var _instrumentation = require("./instrumentation");
 var _manualPromise = require("../utils/manualPromise");
-function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function (nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
-function _interopRequireWildcard(obj, nodeInterop) { if (!nodeInterop && obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(nodeInterop); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (key !== "default" && Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function (e) { return e ? t : r; })(e); }
+function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && Object.prototype.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
 /**
  * Copyright (c) Microsoft Corporation.
  *
@@ -38,16 +37,16 @@ class ExecutionContext extends _instrumentation.SdkObject {
     super(parent, 'execution-context');
     this._delegate = void 0;
     this._utilityScriptPromise = void 0;
-    this._contextDestroyedRace = new _manualPromise.ScopedRace();
+    this._contextDestroyedScope = new _manualPromise.LongStandingScope();
     this.worldNameForTest = void 0;
     this.worldNameForTest = worldNameForTest;
     this._delegate = delegate;
   }
-  contextDestroyed(error) {
-    this._contextDestroyedRace.scopeClosed(error);
+  contextDestroyed(reason) {
+    this._contextDestroyedScope.close(new Error(reason));
   }
   async _raceAgainstContextDestroyed(promise) {
-    return this._contextDestroyedRace.race(promise);
+    return this._contextDestroyedScope.race(promise);
   }
   rawEvaluateJSON(expression) {
     return this._raceAgainstContextDestroyed(this._delegate.rawEvaluateJSON(expression));
@@ -69,9 +68,6 @@ class ExecutionContext extends _instrumentation.SdkObject {
   }
   releaseHandle(objectId) {
     return this._delegate.releaseHandle(objectId);
-  }
-  async waitForSignalsCreatedBy(action) {
-    return action();
   }
   adoptIfNeeded(handle) {
     return null;
@@ -123,8 +119,19 @@ class JSHandle extends _instrumentation.SdkObject {
   async evaluateHandle(pageFunction, arg) {
     return evaluate(this._context, false /* returnByValue */, pageFunction, this, arg);
   }
-  async evaluateExpressionAndWaitForSignals(expression, isFunction, returnByValue, arg) {
-    const value = await evaluateExpressionAndWaitForSignals(this._context, returnByValue, expression, isFunction, this, arg);
+  async evaluateExpression(expression, options, arg) {
+    const value = await evaluateExpression(this._context, expression, {
+      ...options,
+      returnByValue: true
+    }, this, arg);
+    await this._context.doSlowMo();
+    return value;
+  }
+  async evaluateExpressionHandle(expression, options, arg) {
+    const value = await evaluateExpression(this._context, expression, {
+      ...options,
+      returnByValue: false
+    }, this, arg);
     await this._context.doSlowMo();
     return value;
   }
@@ -207,7 +214,7 @@ async function evaluateExpression(context, expression, options, ...args) {
       if (!handle._objectId) return {
         fallThrough: handle._value
       };
-      if (handle._disposed) throw new Error('JSHandle is disposed!');
+      if (handle._disposed) throw new JavaScriptErrorInEvaluate('JSHandle is disposed!');
       const adopted = context.adoptIfNeeded(handle);
       if (adopted === null) return {
         h: pushHandle(Promise.resolve(handle))
@@ -223,7 +230,7 @@ async function evaluateExpression(context, expression, options, ...args) {
   }));
   const utilityScriptObjectIds = [];
   for (const handle of await Promise.all(handles)) {
-    if (handle._context !== context) throw new Error('JSHandles can be evaluated only in the context they were created!');
+    if (handle._context !== context) throw new JavaScriptErrorInEvaluate('JSHandles can be evaluated only in the context they were created!');
     utilityScriptObjectIds.push(handle._objectId);
   }
 
@@ -235,12 +242,6 @@ async function evaluateExpression(context, expression, options, ...args) {
   } finally {
     toDispose.map(handlePromise => handlePromise.then(handle => handle.dispose()));
   }
-}
-async function evaluateExpressionAndWaitForSignals(context, returnByValue, expression, isFunction, ...args) {
-  return await context.waitForSignalsCreatedBy(() => evaluateExpression(context, expression, {
-    returnByValue,
-    isFunction
-  }, ...args));
 }
 function parseUnserializableValue(unserializableValue) {
   if (unserializableValue === 'NaN') return NaN;

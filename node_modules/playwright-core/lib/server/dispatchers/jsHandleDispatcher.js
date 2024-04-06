@@ -39,11 +39,15 @@ class JSHandleDispatcher extends _dispatcher.Dispatcher {
   }
   async evaluateExpression(params) {
     return {
-      value: serializeResult(await this._object.evaluateExpressionAndWaitForSignals(params.expression, params.isFunction, true /* returnByValue */, parseArgument(params.arg)))
+      value: serializeResult(await this._object.evaluateExpression(params.expression, {
+        isFunction: params.isFunction
+      }, parseArgument(params.arg)))
     };
   }
   async evaluateExpressionHandle(params) {
-    const jsHandle = await this._object.evaluateExpressionAndWaitForSignals(params.expression, params.isFunction, false /* returnByValue */, parseArgument(params.arg));
+    const jsHandle = await this._object.evaluateExpressionHandle(params.expression, {
+      isFunction: params.isFunction
+    }, parseArgument(params.arg));
     return {
       handle: _elementHandlerDispatcher.ElementHandleDispatcher.fromJSHandle(this.parentScope(), jsHandle)
     };
@@ -75,8 +79,10 @@ class JSHandleDispatcher extends _dispatcher.Dispatcher {
       count: await this._object.objectCount()
     };
   }
-  async dispose() {
-    await this._object.dispose();
+  async dispose(_, metadata) {
+    metadata.potentiallyClosesScope = true;
+    this._object.dispose();
+    this._dispose();
   }
 }
 

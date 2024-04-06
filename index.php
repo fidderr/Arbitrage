@@ -11,6 +11,10 @@ function scrape($scrape = ['betcity','unibet','toto','jacks','livescorebet']) {
 
     $response = curl_exec($curl);
 
+    echo '<pre>';
+    print_r($response);
+    echo '</pre>';
+
     if (curl_errno($curl)) {
         var_dump('Run `node server.js` to start the server <br>');
         return curl_error($curl);
@@ -20,7 +24,7 @@ function scrape($scrape = ['betcity','unibet','toto','jacks','livescorebet']) {
     }
 }
 
-$data = scrape(['betcity','unibet','toto','jacks','livescorebet']);
+$data = scrape(['livescorebet', 'toto']);
 ?>
 
 
@@ -67,9 +71,9 @@ $data = scrape(['betcity','unibet','toto','jacks','livescorebet']);
 </table>
 
 <?php
-echo '<pre>';
-var_dump($data);
-echo '<pre>';
+// echo '<pre>';
+// var_dump($data);
+// echo '<pre>';
 ?>
 
 </body>

@@ -48,8 +48,6 @@ class RawKeyboardImpl {
     this._client = client;
   }
   async keydown(modifiers, code, keyCode, keyCodeWithoutLocation, key, location, autoRepeat, text) {
-    if (code === 'MetaLeft') code = 'OSLeft';
-    if (code === 'MetaRight') code = 'OSRight';
     // Firefox will figure out Enter by itself
     if (text === '\r') text = '';
     await this._client.send('Page.dispatchKeyEvent', {
@@ -63,8 +61,6 @@ class RawKeyboardImpl {
     });
   }
   async keyup(modifiers, code, keyCode, keyCodeWithoutLocation, key, location) {
-    if (code === 'MetaLeft') code = 'OSLeft';
-    if (code === 'MetaRight') code = 'OSRight';
     await this._client.send('Page.dispatchKeyEvent', {
       type: 'keyup',
       key,
@@ -121,7 +117,9 @@ class RawMouseImpl {
   }
   async wheel(x, y, buttons, modifiers, deltaX, deltaY) {
     // Wheel events hit the compositor first, so wait one frame for it to be synced.
-    await this._page.mainFrame().evaluateExpression(`new Promise(requestAnimationFrame)`, false, false, 'utility');
+    await this._page.mainFrame().evaluateExpression(`new Promise(requestAnimationFrame)`, {
+      world: 'utility'
+    });
     await this._client.send('Page.dispatchWheelEvent', {
       deltaX,
       deltaY,
